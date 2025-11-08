@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Quality Assessment - Provider Directory Management{% endblock %}
+
+{% block content %}
+<h1><i class="fas fa-chart-line"></i> Quality Assessment</h1>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Overall Quality Metrics</h5>
+            </div>
+            <div class="card-body">
+                <button class="btn btn-primary" onclick="runQualityAssessment()">
+                    <i class="fas fa-sync"></i> Run Quality Assessment
+                </button>
+                <div id="qualityMetrics" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Prioritized Review List</h5>
+            </div>
+            <div class="card-body">
+                <button class="btn btn-info" onclick="loadPrioritized()">
+                    <i class="fas fa-list-ol"></i> Load Prioritized Providers
+                </button>
+                <div id="prioritizedList" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function runQualityAssessment() {
+    $.ajax({
+        url: '/api/quality/assess',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({}),
+        success: function(data) {
+            displayQualityMetrics(data);
+        },
+        error: function() {
+            alert('Error running quality assessment');
+        }
+    });
+}
+
+function displayQualityMetrics(data) {
+    const html = `
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5>Total Providers</h5>
+                        <h2>${data.total_providers}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5>Validated</h5>
+                        <h2 class="text-success">${data.validated_count}</h2>
+                        <small>${data.validation_rate.toFixed(1)}%</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5>Needs Review</h5>
+                        <h2 class="text-warning">${data.needs_review_count}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5>Avg Confidence</h5>
+                        <h2>${(data.average_confidence * 100).toFixed(1)}%</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4">
+            <h6>Statistics</h6>
+            <ul>
+                <li>Total Discrepancies: ${data.total_discrepancies}</li>
+                <li>Total Issues: ${data.total_issues}</li>
+                <li>Average Quality Score: ${(data.average_quality_score * 100).toFixed(1)}%</li>
+            </ul>
+        </div>
+    `;
+    $('#qualityMetrics').html(html);
+}
+
+function loadPrioritized() {
+    $.get('/api/quality/prioritize', function(data) {
+        if (data.prioritized && data.prioritized.length > 0) {
+            let html = '<table class="table table-hover"><thead><tr><th>Priority</th><th>Provider</th><th>Status</th><th>Confidence</th><th>Issues</th></tr></thead><tbody>';
+            data.prioritized.forEach((item, index) => {
+                const p = item.provider;
+                const assessment = item.assessment;
+                html += `
+                    <tr>
+                        <td><span class="badge bg-danger">#${index + 1}</span></td>
+                        <td>${p.full_name}<br><small class="text-muted">${p.specialty || 'N/A'}</small></td>
+                        <td><span class="badge bg-warning">${assessment.status}</span></td>
+                        <td>${(assessment.overall_confidence * 100).toFixed(1)}%</td>
+                        <td>${assessment.issues.length} issue(s)</td>
+                    </tr>
+                `;
+            });
+            html += '</tbody></table>';
+            $('#prioritizedList').html(html);
+        } else {
+            $('#prioritizedList').html('<p class="text-muted">No providers need review at this time.</p>');
+        }
+    });
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block title %}Providers - Provider Directory Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-users"></i> Providers</h1>
+    <div>
+        <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+            <i class="fas fa-upload"></i> Upload PDF
+        </a>
+        <a href="#" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addProviderModal">
+            <i class="fas fa-plus"></i> Add Provider
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select" onchange="this.form.submit()">
+                    <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="validated" {% if status_filter == 'validated' %}selected{% endif %}>Validated</option>
+                    <option value="needs_review" {% if status_filter == 'needs_review' %}selected{% endif %}>Needs Review</option>
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Providers Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>NPI</th>
+                        <th>Specialty</th>
+                        <th>Phone</th>
+                        <th>City, State</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for provider in providers.items %}
+                    <tr>
+                        <td>
+                            <strong>{{ provider.first_name }} {{ provider.last_name }}</strong>
+                            {% if provider.practice_name %}<br><small class="text-muted">{{ provider.practice_name }}</small>{% endif %}
+                        </td>
+                        <td>{{ provider.npi or 'N/A' }}</td>
+                        <td>{{ provider.specialty or 'N/A' }}</td>
+                        <td>{{ provider.phone or 'N/A' }}</td>
+                        <td>{{ provider.city or '' }}{% if provider.city and provider.state %}, {% endif %}{{ provider.state or '' }}</td>
+                        <td>
+                            <span class="badge bg-{% if provider.status == 'validated' %}success{% elif provider.status == 'needs_review' %}warning{% else %}secondary{% endif %}">
+                                {{ provider.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="/api/providers/{{ provider.id }}" class="btn btn-sm btn-outline-primary" onclick="viewProvider({{ provider.id }}); return false;">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="#" class="btn btn-sm btn-outline-success" onclick="validateProvider({{ provider.id }}); return false;">
+                                <i class="fas fa-check"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        <nav>
+            <ul class="pagination justify-content-center">
+                {% if providers.has_prev %}
+                <li class="page-item"><a class="page-link" href="?page={{ providers.prev_num }}&status={{ status_filter }}">Previous</a></li>
+                {% endif %}
+                {% for page_num in providers.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        <li class="page-item {% if page_num == providers.page %}active{% endif %}">
+                            <a class="page-link" href="?page={{ page_num }}&status={{ status_filter }}">{{ page_num }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                {% if providers.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ providers.next_num }}&status={{ status_filter }}">Next</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Add Provider Modal -->
+<div class="modal fade" id="addProviderModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Provider</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addProviderForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">First Name *</label>
+                            <input type="text" class="form-control" name="first_name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Last Name *</label>
+                            <input type="text" class="form-control" name="last_name" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">NPI</label>
+                            <input type="text" class="form-control" name="npi">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Specialty</label>
+                            <input type="text" class="form-control" name="specialty">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone</label>
+                        <input type="text" class="form-control" name="phone">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <input type="text" class="form-control" name="address_line1">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">City</label>
+                            <input type="text" class="form-control" name="city">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">State</label>
+                            <input type="text" class="form-control" name="state" maxlength="2">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Zip Code</label>
+                            <input type="text" class="form-control" name="zip_code">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitProviderForm()">Add Provider</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload PDF Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Upload Provider PDF</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label">Select PDF File</label>
+                        <input type="file" class="form-control" name="file" accept=".pdf" required>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="use_vlm" id="useVLM" checked>
+                            <label class="form-check-label" for="useVLM">Use VLM for better extraction accuracy</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="uploadPDF()">Upload & Extract</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Provider Details Modal -->
+<div class="modal fade" id="providerModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Provider Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="providerDetails">
+                <div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function viewProvider(id) {
+    $.get('/api/providers/' + id, function(data) {
+        const p = data.provider;
+        const html = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Provider Information</h5>
+                    <table class="table table-sm">
+                        <tr><th>Name:</th><td>${p.full_name}</td></tr>
+                        <tr><th>NPI:</th><td>${p.npi || 'N/A'}</td></tr>
+                        <tr><th>Specialty:</th><td>${p.specialty || 'N/A'}</td></tr>
+                        <tr><th>Practice:</th><td>${p.practice_name || 'N/A'}</td></tr>
+                        <tr><th>Phone:</th><td>${p.phone || 'N/A'}</td></tr>
+                        <tr><th>Email:</th><td>${p.email || 'N/A'}</td></tr>
+                        <tr><th>Address:</th><td>${p.address.line1 || ''} ${p.address.city || ''}, ${p.address.state || ''} ${p.address.zip_code || ''}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h5>Validation Results</h5>
+                    ${data.validations.length > 0 ? '<table class="table table-sm"><thead><tr><th>Field</th><th>Confidence</th><th>Status</th></tr></thead><tbody>' + 
+                    data.validations.map(v => `<tr><td>${v.field_name}</td><td>${(v.confidence_score * 100).toFixed(1)}%</td><td><span class="badge bg-${v.status === 'validated' ? 'success' : 'warning'}">${v.status}</span></td></tr>`).join('') + 
+                    '</tbody></table>' : '<p class="text-muted">No validation results yet.</p>'}
+                </div>
+            </div>
+        `;
+        $('#providerDetails').html(html);
+        new bootstrap.Modal(document.getElementById('providerModal')).show();
+    });
+}
+
+function validateProvider(id) {
+    if (!confirm('Validate this provider? This will check contact information and credentials.')) return;
+    
+    $.ajax({
+        url: '/api/providers/' + id + '/validate',
+        method: 'POST',
+        success: function(data) {
+            alert('Provider validated successfully!');
+            location.reload();
+        },
+        error: function() {
+            alert('Error validating provider');
+        }
+    });
+}
+
+function submitProviderForm() {
+    const formData = {};
+    $('#addProviderForm').serializeArray().forEach(item => {
+        formData[item.name] = item.value;
+    });
+    
+    $.ajax({
+        url: '/api/providers',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(formData),
+        success: function(data) {
+            alert('Provider added successfully!');
+            location.reload();
+        },
+        error: function() {
+            alert('Error adding provider');
+        }
+    });
+}
+
+function uploadPDF() {
+    const formData = new FormData($('#uploadForm')[0]);
+    const useVLM = $('#useVLM').is(':checked');
+    formData.append('use_vlm', useVLM);
+    
+    $.ajax({
+        url: '/api/upload/pdf',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(data) {
+            if (data.success) {
+                alert(`PDF extracted successfully! Confidence: ${(data.confidence * 100).toFixed(1)}%\n\nExtracted data will be shown in the form.`);
+                // Populate form with extracted data
+                if (data.data) {
+                    Object.keys(data.data).forEach(key => {
+                        const input = $(`[name="${key}"]`);
+                        if (input.length && data.data[key]) {
+                            input.val(data.data[key]);
+                        }
+                    });
+                }
+                $('#uploadModal').modal('hide');
+                $('#addProviderModal').modal('show');
+            } else {
+                alert('Error: ' + (data.error || 'Extraction failed'));
+            }
+        },
+        error: function() {
+            alert('Error uploading PDF');
+        }
+    });
+}
+</script>
+{% endblock %}
+

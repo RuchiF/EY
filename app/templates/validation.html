@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Validation - Provider Directory Management{% endblock %}
+
+{% block content %}
+<h1><i class="fas fa-check-circle"></i> Provider Validation</h1>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Batch Validation</h5>
+            </div>
+            <div class="card-body">
+                <p>Run automated validation for multiple providers. The system will:</p>
+                <ul>
+                    <li>Validate contact information against NPI registry</li>
+                    <li>Scrape provider websites for current information</li>
+                    <li>Cross-reference data across multiple sources</li>
+                    <li>Generate confidence scores for each field</li>
+                    <li>Flag discrepancies for manual review</li>
+                </ul>
+                <button class="btn btn-primary btn-lg" onclick="startValidation()">
+                    <i class="fas fa-play"></i> Start Batch Validation (200 Providers)
+                </button>
+                <div id="validationProgress" class="mt-4" style="display: none;">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <p class="mt-2" id="progressText">Initializing...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Validation Results</h5>
+            </div>
+            <div class="card-body">
+                <div id="validationResults">
+                    <p class="text-muted">No validation results yet. Start a batch validation to see results here.</p>
+                </div>
+                <div id="recentBatches" class="mt-4" style="display: none;">
+                    <h6>Recent Validation Batches</h6>
+                    <div id="batchesList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function startValidation() {
+    if (!confirm('Start batch validation for all pending providers? This may take a few minutes.')) return;
+    
+    $('#validationProgress').show();
+    $('#progressText').text('Starting validation...');
+    
+    $.ajax({
+        url: '/api/batch/validate',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ batch_name: 'Validation_' + new Date().toISOString() }),
+        success: function(data) {
+            $('#validationProgress').hide();
+            displayResults(data);
+        },
+        error: function() {
+            $('#validationProgress').hide();
+            alert('Error starting validation');
+        }
+    });
+}
+
+function displayResults(data) {
+    const html = `
+        <div class="alert alert-success">
+            <h5><i class="fas fa-check-circle"></i> Validation Complete!</h5>
+            <p><strong>Processed:</strong> ${data.processed} providers</p>
+            <p><strong>Validated:</strong> ${data.validated} providers</p>
+            <p><strong>Needs Review:</strong> ${data.needs_review_count} providers</p>
+            <p><strong>Average Confidence:</strong> ${(data.average_confidence * 100).toFixed(1)}%</p>
+            <p><strong>Processing Time:</strong> ${data.processing_time_seconds.toFixed(2)} seconds</p>
+        </div>
+        <div class="mt-3">
+            <a href="/reports?batch_id=${data.batch_id}" class="btn btn-primary me-2">
+                <i class="fas fa-file-alt"></i> View Detailed Report
+            </a>
+            <button class="btn btn-info" onclick="viewBatchDetails(${data.batch_id})">
+                <i class="fas fa-eye"></i> View Details
+            </button>
+            <a href="/api/batch/${data.batch_id}/report" class="btn btn-secondary" download="validation_report_${data.batch_id}.pdf" target="_blank">
+                <i class="fas fa-download"></i> Download PDF
+            </a>
+        </div>
+    `;
+    $('#validationResults').html(html);
+    loadRecentBatches();
+}
+
+function viewBatchDetails(batchId) {
+    $.get('/api/batch/' + batchId, function(data) {
+        const html = `
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h6>Batch Information</h6>
+                    <table class="table table-sm table-bordered">
+                        <tr><th>Batch Name:</th><td>${data.batch_name}</td></tr>
+                        <tr><th>Total Providers:</th><td>${data.total_providers}</td></tr>
+                        <tr><th>Processed:</th><td>${data.processed_providers}</td></tr>
+                        <tr><th>Validated:</th><td>${data.validated_providers}</td></tr>
+                        <tr><th>Needs Review:</th><td>${data.needs_review_count}</td></tr>
+                        <tr><th>Average Confidence:</th><td>${data.average_confidence ? (data.average_confidence * 100).toFixed(1) + '%' : 'N/A'}</td></tr>
+                        <tr><th>Processing Time:</th><td>${data.processing_time_seconds ? data.processing_time_seconds.toFixed(2) + ' seconds' : 'N/A'}</td></tr>
+                        <tr><th>Status:</th><td><span class="badge bg-${data.status === 'completed' ? 'success' : data.status === 'processing' ? 'warning' : 'secondary'}">${data.status}</span></td></tr>
+                    </table>
+                </div>
+            </div>
+            ${data.providers_needing_review && data.providers_needing_review.length > 0 ? `
+            <div class="row">
+                <div class="col-md-12">
+                    <h6>Providers Needing Review (${data.total_needs_review || data.needs_review_count || data.providers_needing_review.length}${data.providers_needing_review.length < (data.total_needs_review || data.needs_review_count || 0) ? ` - Showing first ${data.providers_needing_review.length}` : ''})</h6>
+                    ${data.providers_needing_review.length < (data.total_needs_review || data.needs_review_count || 0) ? `
+                    <div class="alert alert-info">
+                        <small><i class="fas fa-info-circle"></i> Showing first ${data.providers_needing_review.length} of ${data.total_needs_review || data.needs_review_count} providers. <a href="/providers?status=needs_review">View all providers needing review</a></small>
+                    </div>
+                    ` : ''}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Specialty</th>
+                                    <th>Phone</th>
+                                    <th>City</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.providers_needing_review.map(p => `
+                                    <tr>
+                                        <td>${p.full_name}</td>
+                                        <td>${p.specialty || 'N/A'}</td>
+                                        <td>${p.phone || 'N/A'}</td>
+                                        <td>${p.address.city || 'N/A'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            ` : '<p class="text-muted">No providers need review.</p>'}
+        `;
+        
+        // Create or update modal
+        let modal = $('#batchDetailsModal');
+        if (modal.length === 0) {
+            $('body').append(`
+                <div class="modal fade" id="batchDetailsModal" tabindex="-1">
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Batch Details</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body" id="batchDetailsContent"></div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
+        $('#batchDetailsContent').html(html);
+        new bootstrap.Modal(document.getElementById('batchDetailsModal')).show();
+    }).fail(function() {
+        alert('Error loading batch details');
+    });
+}
+
+function loadRecentBatches() {
+    // Load recent batches for quick access
+    $.get('/api/batch', function(data) {
+        if (data && data.batches && data.batches.length > 0) {
+            const batchesHtml = data.batches.slice(0, 5).map(batch => `
+                <div class="card mb-2">
+                    <div class="card-body p-2">
+                        <div class="row align-items-center">
+                            <div class="col-md-4">
+                                <strong>${batch.batch_name}</strong>
+                            </div>
+                            <div class="col-md-2">
+                                <small>Validated: ${batch.validated_providers}</small>
+                            </div>
+                            <div class="col-md-2">
+                                <small>Review: ${batch.needs_review_count}</small>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-sm btn-outline-info" onclick="viewBatchDetails(${batch.id})">
+                                    <i class="fas fa-eye"></i> Details
+                                </button>
+                                <a href="/api/batch/${batch.id}/report" class="btn btn-sm btn-outline-primary" download="validation_report_${batch.id}.pdf" target="_blank">
+                                    <i class="fas fa-download"></i> PDF
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            $('#batchesList').html(batchesHtml);
+            $('#recentBatches').show();
+        }
+    }).fail(function() {
+        // Silently fail - not critical
+    });
+}
+
+// Load recent batches on page load
+$(document).ready(function() {
+    loadRecentBatches();
+});
+</script>
+{% endblock %}
+

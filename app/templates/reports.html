@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Provider Directory Management{% endblock %}
+
+{% block content %}
+<h1><i class="fas fa-file-alt"></i> Validation Reports</h1>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Validation Batches</h5>
+            </div>
+            <div class="card-body">
+                {% if batches %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Batch Name</th>
+                                <th>Total</th>
+                                <th>Processed</th>
+                                <th>Validated</th>
+                                <th>Needs Review</th>
+                                <th>Avg Confidence</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for batch in batches %}
+                            <tr>
+                                <td>{{ batch.batch_name }}</td>
+                                <td>{{ batch.total_providers }}</td>
+                                <td>{{ batch.processed_providers }}</td>
+                                <td>{{ batch.validated_providers }}</td>
+                                <td>{{ batch.needs_review_count }}</td>
+                                <td>{{ (batch.average_confidence * 100) | round(1) if batch.average_confidence else 'N/A' }}%</td>
+                                <td>
+                                    <span class="badge bg-{% if batch.status == 'completed' %}success{% elif batch.status == 'processing' %}warning{% else %}secondary{% endif %}">
+                                        {{ batch.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="/api/batch/{{ batch.id }}/report" class="btn btn-sm btn-outline-primary" download="validation_report_{{ batch.id }}.pdf" target="_blank">
+                                        <i class="fas fa-download"></i> PDF
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-info" onclick="viewBatchDetails({{ batch.id }})">
+                                        <i class="fas fa-eye"></i> Details
+                                    </button>
+                                    {% if batch.status == 'processing' %}
+                                    <button class="btn btn-sm btn-outline-warning" onclick="fixBatch({{ batch.id }})" title="Fix stuck batch">
+                                        <i class="fas fa-wrench"></i> Fix
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No validation batches yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Batch Details Modal -->
+<div class="modal fade" id="batchModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Batch Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="batchDetails">
+                <div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function viewBatchDetails(batchId) {
+    $.get('/api/batch/' + batchId, function(data) {
+        const html = `
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h6>Batch Information</h6>
+                    <table class="table table-sm">
+                        <tr><th>Batch Name:</th><td>${data.batch_name}</td></tr>
+                        <tr><th>Total Providers:</th><td>${data.total_providers}</td></tr>
+                        <tr><th>Processed:</th><td>${data.processed_providers}</td></tr>
+                        <tr><th>Validated:</th><td>${data.validated_providers}</td></tr>
+                        <tr><th>Needs Review:</th><td>${data.needs_review_count}</td></tr>
+                        <tr><th>Average Confidence:</th><td>${data.average_confidence ? (data.average_confidence * 100).toFixed(1) + '%' : 'N/A'}</td></tr>
+                        <tr><th>Processing Time:</th><td>${data.processing_time_seconds ? data.processing_time_seconds.toFixed(2) + ' seconds' : 'N/A'}</td></tr>
+                        <tr><th>Status:</th><td><span class="badge bg-${data.status === 'completed' ? 'success' : data.status === 'processing' ? 'warning' : 'secondary'}">${data.status}</span></td></tr>
+                    </table>
+                </div>
+            </div>
+            ${data.providers_needing_review && data.providers_needing_review.length > 0 ? `
+            <div class="row">
+                <div class="col-md-12">
+                    <h6>Providers Needing Review (${data.total_needs_review || data.needs_review_count || data.providers_needing_review.length}${data.providers_needing_review.length < (data.total_needs_review || data.needs_review_count || 0) ? ` - Showing first ${data.providers_needing_review.length}` : ''})</h6>
+                    ${data.providers_needing_review.length < (data.total_needs_review || data.needs_review_count || 0) ? `
+                    <div class="alert alert-info">
+                        <small><i class="fas fa-info-circle"></i> Showing first ${data.providers_needing_review.length} of ${data.total_needs_review || data.needs_review_count} providers. <a href="/providers?status=needs_review">View all providers needing review</a></small>
+                    </div>
+                    ` : ''}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Specialty</th>
+                                    <th>Phone</th>
+                                    <th>City</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.providers_needing_review.map(p => `
+                                    <tr>
+                                        <td>${p.full_name}</td>
+                                        <td>${p.specialty || 'N/A'}</td>
+                                        <td>${p.phone || 'N/A'}</td>
+                                        <td>${p.address.city || 'N/A'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            ` : '<p class="text-muted">No providers need review.</p>'}
+        `;
+        $('#batchDetails').html(html);
+        new bootstrap.Modal(document.getElementById('batchModal')).show();
+    });
+}
+
+function fixBatch(batchId) {
+    if (!confirm('Fix this stuck batch? This will recalculate status from current provider data.')) return;
+    
+    $.ajax({
+        url: '/api/batch/' + batchId + '/fix',
+        method: 'POST',
+        success: function(data) {
+            if (data.success) {
+                alert('Batch fixed successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        },
+        error: function() {
+            alert('Error fixing batch');
+        }
+    });
+}
+</script>
+{% endblock %}
+

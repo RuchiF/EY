@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Provider Directory Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+    <button class="btn btn-primary" onclick="generateSyntheticData()">
+        <i class="fas fa-plus"></i> Generate Test Data
+    </button>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Total Providers</h5>
+                <h2 class="text-primary">{{ total_providers }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Validated</h5>
+                <h2 class="text-success">{{ validated_count }}</h2>
+                <small class="text-muted">{{ (validated_count / total_providers * 100) | round(1) if total_providers > 0 else 0 }}%</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Needs Review</h5>
+                <h2 class="text-warning">{{ needs_review_count }}</h2>
+                <small class="text-muted">{{ (needs_review_count / total_providers * 100) | round(1) if total_providers > 0 else 0 }}%</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Pending</h5>
+                <h2 class="text-info">{{ pending_count }}</h2>
+                <small class="text-muted">{{ (pending_count / total_providers * 100) | round(1) if total_providers > 0 else 0 }}%</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-bolt"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <button class="btn btn-success me-2" onclick="startBatchValidation()">
+                    <i class="fas fa-play"></i> Start Batch Validation (200 Providers)
+                </button>
+                <button class="btn btn-info me-2" onclick="assessQuality()">
+                    <i class="fas fa-chart-bar"></i> Run Quality Assessment
+                </button>
+                <button class="btn btn-secondary" onclick="viewPrioritized()">
+                    <i class="fas fa-list-ol"></i> View Prioritized Review List
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Batches -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-history"></i> Recent Validation Batches</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_batches %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Batch Name</th>
+                                <th>Total</th>
+                                <th>Processed</th>
+                                <th>Validated</th>
+                                <th>Needs Review</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for batch in recent_batches %}
+                            <tr>
+                                <td>{{ batch.batch_name }}</td>
+                                <td>{{ batch.total_providers }}</td>
+                                <td>{{ batch.processed_providers }}</td>
+                                <td>{{ batch.validated_providers }}</td>
+                                <td>{{ batch.needs_review_count }}</td>
+                                <td>
+                                    <span class="badge bg-{% if batch.status == 'completed' %}success{% elif batch.status == 'processing' %}warning{% else %}secondary{% endif %}">
+                                        {{ batch.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('main.reports') }}?batch_id={{ batch.id }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No validation batches yet. Start a batch validation to see results here.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function generateSyntheticData() {
+    if (!confirm('Generate 200 synthetic provider profiles for testing?')) return;
+    
+    $.ajax({
+        url: '/api/synthetic/generate',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ count: 200, error_rate: 0.4 }),
+        success: function(data) {
+            alert(`Successfully created ${data.created} providers!`);
+            location.reload();
+        },
+        error: function() {
+            alert('Error generating synthetic data');
+        }
+    });
+}
+
+function startBatchValidation() {
+    if (!confirm('Start batch validation for all pending providers? This may take a few minutes.')) return;
+    
+    $.ajax({
+        url: '/api/batch/validate',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ batch_name: 'Batch_' + new Date().toISOString() }),
+        success: function(data) {
+            alert(`Batch validation started! Processed ${data.processed} providers in ${data.processing_time_seconds.toFixed(2)} seconds.`);
+            location.reload();
+        },
+        error: function() {
+            alert('Error starting batch validation');
+        }
+    });
+}
+
+function assessQuality() {
+    $.ajax({
+        url: '/api/quality/assess',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({}),
+        success: function(data) {
+            alert(`Quality Assessment Complete!\n\nTotal Providers: ${data.total_providers}\nValidated: ${data.validated_count}\nNeeds Review: ${data.needs_review_count}\nAverage Confidence: ${(data.average_confidence * 100).toFixed(1)}%`);
+            location.href = '/quality';
+        },
+        error: function() {
+            alert('Error running quality assessment');
+        }
+    });
+}
+
+function viewPrioritized() {
+    location.href = '/quality';
+}
+</script>
+{% endblock %}
+
