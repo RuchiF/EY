@@ -40,17 +40,17 @@ python main.py
 
 ## Key Features to Demo
 
-### ✅ Flow 1: Automated Contact Validation
+### Flow 1: Automated Contact Validation
 - **What**: Validates 200 providers automatically
 - **Time**: Under 5 minutes
 - **Result**: Confidence scores, discrepancy flags, validation report
 
-### ✅ Flow 2: PDF Extraction
+### Flow 2: PDF Extraction
 - **What**: Upload scanned PDF, extract structured data
 - **Accuracy**: 85%+ with VLM, 70%+ with OCR
 - **Use Case**: New provider onboarding
 
-### ✅ Flow 3: Quality Assessment
+###  Flow 3: Quality Assessment
 - **What**: Assesses entire directory quality
 - **Output**: Metrics, prioritized review list, recommendations
 
@@ -85,10 +85,10 @@ pip install -r requirements.txt --upgrade
 
 ## Performance Metrics
 
-- ✅ **200 providers validated in < 5 minutes**
-- ✅ **80%+ validation accuracy**
-- ✅ **85%+ PDF extraction accuracy**
-- ✅ **500+ providers/hour throughput**
+- **200 providers validated in < 5 minutes**
+-  **80%+ validation accuracy**
+-  **85%+ PDF extraction accuracy**
+-  **500+ providers/hour throughput**
 
 ## Next Steps
 
