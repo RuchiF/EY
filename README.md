@@ -136,19 +136,19 @@ This will demonstrate all three key flows:
 - Identifies network gaps
 - Creates standardized provider profiles
 
-### ✅ Quality Assurance Agent
+### Quality Assurance Agent
 - Compares provider information across multiple sources
 - Flags providers with suspicious information
 - Tracks data quality metrics
 - Prioritizes providers for manual verification
 
-### ✅ Directory Management Agent
+### Directory Management Agent
 - Generates updated provider directory entries
 - Creates automated alerts
 - Produces summary reports
 - Manages workflow queues for human reviewers
 
-### ✅ PDF Extraction
+### PDF Extraction
 - VLM-based extraction from scanned PDFs
 - OCR fallback for unstructured documents
 - 85%+ accuracy target with 95% confidence scoring
@@ -194,10 +194,10 @@ This will demonstrate all three key flows:
 
 ## Performance Targets
 
-- ✅ **Validation Accuracy**: 80%+ success rate
-- ✅ **Processing Speed**: 100 providers in under 5 minutes
-- ✅ **PDF Extraction**: 85%+ accuracy with 95% confidence
-- ✅ **Throughput**: 500+ validations per hour
+-  **Validation Accuracy**: 80%+ success rate
+-  **Processing Speed**: 100 providers in under 5 minutes
+-  **PDF Extraction**: 85%+ accuracy with 95% confidence
+-  **Throughput**: 500+ validations per hour
 
 ## Project Structure
 
